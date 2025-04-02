@@ -104,7 +104,8 @@ if __name__ == '__main__':
             'Syrah',
             'Viognier'
         ]
-        args.task_file_dict = {task: pd.read_csv(glob.glob(args.data_path+'*'+task+'*')[0],low_memory=False) for task in args.expert_tasks}
+        if args.preprocess_data or args.train_model:
+            args.task_file_dict = {task: pd.read_csv(glob.glob(args.data_path+'*'+task+'*')[0],low_memory=False) for task in args.expert_tasks}
     elif args.dataset_name in ['RealTimeCH']:
         from util.create_dataset import create_dataset_realtimeCH as create_dataset
         args.start_date = pd.to_datetime("07/09/2024", dayfirst=True)#first day of current dormant season
@@ -162,7 +163,8 @@ if __name__ == '__main__':
         args.labels = [args.CS_label]
         args.expert_tasks = [str(x) + "_" for x in range(1,21)]
         args.eval_tasks = [str(x) + "_" for x in range(1,16)]
-        args.task_file_dict = {task: pd.read_csv(glob.glob(args.data_path+task+'*')[0],low_memory=False) for task in args.expert_tasks}
+        if args.preprocess_data or args.train_model:
+            args.task_file_dict = {task: pd.read_csv(glob.glob(args.data_path+task+'*')[0],low_memory=False) for task in args.expert_tasks}
 
     #get device (cuda or cpu)
     args.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")

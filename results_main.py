@@ -43,14 +43,11 @@ if args.dataset_name in ['ColdHardiness']:
         ]
         args.eval_tasks =  [
             'Chardonnay',
-            'Chenin Blanc',
             'Grenache',
-            'Malbec',
             'Merlot',
             'Mourvedre',
             'Pinot Gris',
             'Sangiovese',
-            'Sauvignon Blanc',
             'Syrah',
             'Viognier'
         ]
