@@ -25,6 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--preprocess_data', action='store_true', help="run data preprocessing, do if haven't done before")
     parser.add_argument('--run_sampling', action='store_true', help="run a sampling policy and get model weighting")
     parser.add_argument('--run_weighting_eval', action='store_true', help="evaluate weighted model on test set")
+    parser.add_argument('--run_realtime_eval', action='store_true', help="get realtimeCH predictions for previous seasons")
     
     #model training arguments
     parser.add_argument('--epochs', type=int, default=400, help='Number of epochs to run the model for')

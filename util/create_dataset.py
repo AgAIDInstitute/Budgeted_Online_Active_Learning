@@ -31,17 +31,21 @@ def create_dataset(args):
 def create_dataset_realtimeCH(args):
     x_train_list = list()
     y_train_list = list()
+    x_eval_dict = dict()
     #process data for each task
     for task_idx, task in enumerate(args.data_tasks):
         #process data for each task
-        x, y = data_processing_realtimeCH(task, task_idx, args)
+        x, y, x_eval = data_processing_realtimeCH(task, task_idx, args)
         #update lists
         x_train_list.append(x)
         y_train_list.append(y)
+        #x_eval_list.append(x_eval)
+        x_eval_dict[task] = torch.Tensor(x_eval)
     
     #create and return data dictionary
     x_torch = torch.Tensor(np.concatenate(x_train_list))
     y_torch = torch.Tensor(np.concatenate(y_train_list))
     train_dataset = {'x':x_torch, 'y':y_torch, 'task_id':x_torch}
-    return {'train':train_dataset}
+    test_dataset = {'x':x_eval_dict}
+    return {'train':train_dataset, 'test':test_dataset}
     

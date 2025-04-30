@@ -7,6 +7,7 @@ from pathlib import Path
 import math
 import csv
 import scipy.stats as st
+import math
 
 
 #helper fxn for create_results_file_losses, returns lists of losses and Wilcoxan test results
@@ -66,7 +67,7 @@ def get_comp_losses_Wilcoxan(args, baseline_policy=None):
         avg_diff_losses.append(statistics.mean(diff_loss_list))
         avg_losses.append(statistics.mean(loss_list))
         #caluclate Wilcoxan if baseline policy is not the same as policy, otherwise use 1 as placeholder
-        if(baseline_policy == args.policy):#TODO CHECK AND REMOVE baseline_loss_list[0]-loss_list[0]==0
+        if(baseline_policy == args.policy):
             t_stat, p_value = 1, 1
         else:
             t_stat, p_value = st.wilcoxon(baseline_loss_list, loss_list, alternative="greater")
@@ -77,7 +78,7 @@ def get_comp_losses_Wilcoxan(args, baseline_policy=None):
     avg_losses.append(statistics.mean(avg_losses))
     avg_diff_losses.append(statistics.mean(avg_diff_losses))
     
-    if(baseline_policy == args.policy):#TODO CHECK AND REMOVE all_baseline_losses[0]-all_losses[0]==0
+    if(baseline_policy == args.policy):
         t_stat, p_value = 1, 1
     else:
         t_stat, p_value = st.wilcoxon(all_baseline_losses, all_losses, alternative="greater")
@@ -355,7 +356,7 @@ def plot_variances(args):
         sampling_dict = pickle.load(f)
     
     #check if image save directory exists, if not make directory
-    Path(os.path.join(args.plots_path, args.dataset_name, args.name,"variance_plots")).mkdir(parents=True, exist_ok=True)
+    Path(os.path.join(args.plots_path, args.dataset_name, args.name,"variance_plots",args.policy)).mkdir(parents=True, exist_ok=True)
     
     #iterate over all tasks, trials, and seasons, generating one plot per combination
     for task in args.eval_tasks:
@@ -374,6 +375,23 @@ def plot_variances(args):
                     for sample in samples[sea]:
                         line = plt.axvline(x = sample, color = 'b')
                     line.set_label('Sample collected')#only include label once
+                    
+                if args.policy in ["secretary", "maxoracle_secretary"]: #secretary, obs zone
+                    k=args.n_samples_list[0]
+                    substream_len = 252/k if args.dataset_name == "ColdHardiness" else n_days/k
+                    first_idxs = [i*substream_len for i in range(k)]
+                    n_observe = int(substream_len//(math.e))
+                    for idx in first_idxs:
+                        obs_window = plt.axvspan(idx, idx+n_observe, color='0.5', alpha=0.5)
+                    obs_window.set_label('Observation window')#only include label once
+                    
+                elif args.policy in ["prophet_nthreshold", "empirical_1threshold", "maxoracle_prophet","baseline"]: #prophet, use whole zone, just do lines
+                    k=args.n_samples_list[0]
+                    substream_len = 252/k if args.dataset_name == "ColdHardiness" else n_days/k
+                    last_idxs = [(i+1)*substream_len - 0.5 for i in range(k)]
+                    for idx in last_idxs[:-1]:
+                        line = plt.axvline(x = idx, color = '0.6')
+                    line.set_label('Sample window boundary')#only include label once
                 
                 #add dataset specific axis labels and limits, plot formatting
                 plt.ylabel("Variance")
@@ -387,5 +405,5 @@ def plot_variances(args):
                 plt.legend()
                 
                 #save and close plot
-                plt.savefig(os.path.join(args.plots_path, args.dataset_name, args.name,"variance_plots",title + str(args.plot_act) + str(args.plot_samples) + ".png"))
+                plt.savefig(os.path.join(args.plots_path, args.dataset_name, args.name,"variance_plots",args.policy,title + str(args.plot_act) + str(args.plot_samples) + ".png"))
                 plt.close()

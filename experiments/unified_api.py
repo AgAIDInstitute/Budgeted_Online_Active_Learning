@@ -866,11 +866,15 @@ def run_human_eval(args):
     
     loss_dict = dict()
     loss_dict['train'] = dict()
+    loss_dict['test'] = dict()
 
     with torch.no_grad():
         model.eval()
         loss_dict['variances'] = dict()
         loss_dict['samples'] = dict()
+        loss_dict['sample_vals'] = dict()
+        loss_dict['weights'] = dict()
+        loss_dict['preds'] = dict()
         for i, ((x, y, task_id), task) in enumerate(zip(trainLoader,args.data_tasks)):
             x_torch = x.to(args.device)
             y_torch = y.to(args.device)
@@ -894,11 +898,49 @@ def run_human_eval(args):
                 preds = np.vstack((preds, loss_dict['train'][t_id][0]["pred"]))
                 season_losses = np.vstack((season_losses, loss_dict['train'][t_id][0]["all_losses_MSE"]))
             
-            variances, samples = args.policy_fxn(args, preds, season_losses)
+            variances, samples, weights = run_record_var_policy(args, preds, season_losses)
             loss_dict['variances'][task] = variances
             loss_dict['samples'][task] = samples
+            loss_dict['sample_vals'][task] = y
+            loss_dict['weights'][task] = weights
+            loss_dict['preds'][task] = preds
+    
+    if args.run_realtime_eval:
+        with torch.no_grad():
+            model.eval()
+            loss_dict['preds_weighted'] = dict()
+            loss_dict['preds_unweighted'] = dict()
+            #for i, (x, task) in enumerate(zip(dataset['test']['x'],args.data_tasks)):
+            for task in args.data_tasks:
+                x = dataset['test']['x'][task]
+                x_torch = x.to(args.device)
+                y_torch = y.to(args.device)
+                
+                #get model predictions
+                for t_id in range(args.n_experts):
+                    loss_dict['test'][t_id] = dict()
+                    task_id_torch = (torch.ones((x.shape[0], x.shape[1]))*t_id).type(torch.LongTensor).to(args.device)
+                    out_primary, out_aux, _ = model(x_torch, task_label=task_id_torch)
+                    #loop over all seasons
+                    for p_label in range(len(args.labels)):
+                        loss_dict['test'][t_id][p_label] = dict()
+                        loss_dict['test'][t_id][p_label]["pred"] = ((out_primary[:,:,p_label])).detach().cpu().numpy()
+                
+                n_seasons,n_days = loss_dict['test'][0][0]["pred"].shape
+                preds = np.empty((0,n_seasons,n_days))
+                for t_id in range(args.n_experts):
+                    preds = np.vstack((preds, np.expand_dims(loss_dict['test'][t_id][0]["pred"], axis=0)))
+                
+                loss_dict['preds_unweighted'][task] = np.average(preds, axis=0)
+                weighted_preds = np.empty((n_seasons, n_days))
+                for sea in range(n_seasons):    
+                    for day in range(n_days):
+                        weighted_preds[sea,day] = np.average(preds[:,sea,day], axis=0, weights=loss_dict['weights'][task])
+                loss_dict['preds_weighted'][task] = weighted_preds
+                    
        
     return loss_dict 
+
 
 def run_record_var_policy(args, preds, season_losses):
     n_models, n_days = preds.shape
@@ -914,7 +956,7 @@ def run_record_var_policy(args, preds, season_losses):
             weights = get_weights(samples, np.transpose(season_losses), args.a_weight)
             print(weights)
     
-    return variances, samples
+    return variances, samples, weights
 
 
 #BASE MODEL TRAINING VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV    
@@ -1103,7 +1145,7 @@ def run_eval(args):
     x_train, _, _ = train_dataset[:]
     total_seasons = x_train.shape[0]
     train_batch_size = int(total_seasons/args.n_tasks)
-    trainLoader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=False) #TODO: THIS WONT WORK FOR NON SIMULATION!!!!!!!!!!!
+    trainLoader = DataLoader(train_dataset, batch_size=train_batch_size, shuffle=False)
 
     test_dataset = MyDataset(dataset['test'])
     x_test, _, _ = test_dataset[:]
